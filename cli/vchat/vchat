@@ -2167,8 +2167,87 @@ def cmd_setup(args):
         print("❌ WeChat 没在跑"); sys.exit(6)
     print(f"  ✓ WeChat pid = {pid_out.stdout.split()[0]}")
 
-    print("\n▶ 步骤 5/5 · 内存扫描 + 解密")
+    print("\n▶ 步骤 5/6 · 内存扫描 + 解密 db")
     cmd_decrypt(args)
+
+    print("\n▶ 步骤 6/6 · 扫 image_aes_key（让 files-export / sns-images 也能用）")
+    _try_extract_image_key(native_dir)
+
+
+def _try_extract_image_key(native_dir):
+    """跑 find_image_key_macos 扫 image_aes_key，写到 $DATA_DIR/config.json"""
+    import sqlite3, hashlib, json as _json
+    scanner = native_dir / "find_image_key_macos"
+    if not scanner.exists():
+        print(f"  ⚪ 跳过：{scanner} 未编译"); return
+
+    # 先找一个 V2 格式的真实 .dat 文件作 oracle
+    sample = _find_v2_dat_sample()
+    if not sample:
+        print("  ⚪ 跳过：没找到 V2 格式 .dat 文件作 oracle")
+        print("       （在微信里点开几张近期图片让缓存生成，再跑 vchat decrypt 重试）")
+        return
+    print(f"  ✓ 样本: {sample.name}")
+
+    pid_out = subprocess.run(["pgrep", "-f", "WeChat.app/Contents/MacOS/WeChat$"],
+                             capture_output=True, text=True)
+    if pid_out.returncode != 0:
+        print("  ⚪ 跳过：WeChat 未运行"); return
+    pid = pid_out.stdout.split()[0]
+
+    out = subprocess.run(
+        [str(scanner), "--pid", pid, "--sample", str(sample)],
+        capture_output=True, text=True, timeout=300
+    )
+    sys.stderr.write(out.stderr)
+    if out.returncode != 0:
+        print(f"  ⚠ image_aes_key 没扫到（returncode={out.returncode}）"); return
+
+    try:
+        result = _json.loads(out.stdout)
+    except Exception:
+        print(f"  ⚠ 输出不是 JSON: {out.stdout[:200]}"); return
+
+    # 合并写 config.json
+    cfg_path = DATA_DIR / "config.json"
+    cfg = {}
+    if cfg_path.exists():
+        try:
+            cfg = _json.loads(cfg_path.read_text())
+        except Exception:
+            cfg = {}
+    cfg.update(result)
+    # 记录 sample 作为以后增量验证
+    cfg["_image_key_sample"] = str(sample)
+    cfg["db_dir"] = str(sample.parent.parent.parent.parent.parent / "db_storage")  # 给 cmd_files 用
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg_path.write_text(_json.dumps(cfg, indent=2, ensure_ascii=False))
+    print(f"  ✓ image_aes_key 写入 {cfg_path}")
+    print(f"  ✓ files --export / sns-images 现在可用")
+
+
+def _find_v2_dat_sample():
+    """找一个 V2 格式 .dat 文件作 image key 扫描的 oracle。"""
+    candidates_root = Path.home() / "Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files"
+    if not candidates_root.exists():
+        return None
+    V2_MAGIC = b"\x07\x08V2\x08\x07"
+    # 找最新的 wxid_xxx/msg/attach/*/202*/Img/*.dat
+    for wxid_dir in candidates_root.iterdir():
+        if not wxid_dir.is_dir(): continue
+        attach = wxid_dir / "msg" / "attach"
+        if not attach.exists(): continue
+        # 找最近修改的几个 .dat 文件试
+        dats = sorted(attach.rglob("*.dat"), key=lambda p: -p.stat().st_mtime)[:30]
+        for f in dats:
+            try:
+                with open(f, "rb") as fp:
+                    head = fp.read(6)
+                if head == V2_MAGIC:
+                    return f
+            except Exception:
+                continue
+    return None
 
 
 def cmd_completion(args):
