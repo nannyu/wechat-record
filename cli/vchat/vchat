@@ -101,10 +101,45 @@ def cmd_search(args):
 
 def cmd_history(args):
     check_freshness()
+    since = getattr(args, "since", "") or ""
+    until = getattr(args, "until", "") or ""
+    if getattr(args, "json_out", False):
+        from vchat_core.messages import get_chat_history_dict
+        from vchat_core.contacts import resolve_chat_context
+        from vchat_core.output import emit
+        ctx = resolve_chat_context(args.name)
+        if not ctx:
+            emit({
+                "chat_name": args.name,
+                "error": f"找不到聊天对象: {args.name}",
+                "messages": [],
+                "message_count": 0,
+            }, json_mode=True)
+            return
+        messages = get_chat_history_dict(
+            chat_name=args.name,
+            limit=args.n or 50,
+            start_time=since,
+            end_time=until,
+            oldest_first=args.asc,
+        )
+        emit({
+            "chat_name": args.name,
+            "username": ctx["username"],
+            "is_chatroom": ctx["is_chatroom"],
+            "display_name": ctx["display_name"],
+            "since": since or None,
+            "until": until or None,
+            "message_count": len(messages),
+            "messages": messages,
+        }, json_mode=True)
+        return
     from vchat_core import _compat as mcp_server
     out = mcp_server.get_chat_history(
         chat_name=args.name,
         limit=args.n or 50,
+        start_time=since,
+        end_time=until,
         oldest_first=args.asc,
     )
     print(out)
@@ -2396,6 +2431,8 @@ def main():
     sp.add_argument("name")
     sp.add_argument("-n", type=int)
     sp.add_argument("--asc", action="store_true", help="旧到新")
+    sp.add_argument("--since", default="", help="起始时间 YYYY-MM-DD / YYYY-MM-DD HH:MM")
+    sp.add_argument("--until", default="", help="结束时间 YYYY-MM-DD / YYYY-MM-DD HH:MM")
     sp.set_defaults(func=cmd_history)
 
     sp = sub.add_parser("contacts", help="找联系人")
@@ -2660,7 +2697,7 @@ def main():
     if args.no_color:
         disable_color()
 
-    NATIVE_JSON = {"ls", "info", "doctor", "group-members"}
+    NATIVE_JSON = {"ls", "info", "doctor", "group-members", "history"}
 
     def _run(args):
         if not getattr(args, "json_out", False) or args.cmd in NATIVE_JSON:
