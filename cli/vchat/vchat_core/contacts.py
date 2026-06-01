@@ -81,11 +81,14 @@ def resolve_chat_context(chat_name: str) -> Optional[dict]:
     row = _resolve_username(chat_name)
     if not row:
         return None
+    uname = row["username"] or ""
     return {
-        "username": row["username"],
-        "display_name": (row["remark"] or row["nick_name"]
-                         or row["username"]),
-        "is_chatroom": row["local_type"] == LOCAL_TYPE_CHATROOM,
+        "username": uname,
+        "display_name": (row["remark"] or row["nick_name"] or uname),
+        # 微信 4.x 的 local_type 有时把群标成 1（实测 6 个群、9 个 type=0 群），
+        # 所以 username 后缀 @chatroom 作为权威兜底。
+        "is_chatroom": (row["local_type"] == LOCAL_TYPE_CHATROOM
+                        or uname.endswith("@chatroom")),
         "contact_id": row["id"],
     }
 
@@ -152,11 +155,18 @@ def search_contacts(query: str = "", limit: int = 50) -> list[dict]:
 def get_chatroom_members(room_username: str) -> list[dict]:
     """返回群成员列表 [{username, nick_name, remark}, ...]。"""
     conn = _cache.get("contact/contact.db")
-    # 找群的 id
-    row = conn.execute(
-        "SELECT id FROM contact WHERE username=? AND local_type=? LIMIT 1",
-        (room_username, LOCAL_TYPE_CHATROOM),
-    ).fetchone()
+    # 4.x 的 local_type 偶尔把群标成 1，所以放宽：username 后缀
+    # @chatroom 时不再校验 local_type。
+    if room_username.endswith("@chatroom"):
+        row = conn.execute(
+            "SELECT id FROM contact WHERE username=? LIMIT 1",
+            (room_username,),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT id FROM contact WHERE username=? AND local_type=? LIMIT 1",
+            (room_username, LOCAL_TYPE_CHATROOM),
+        ).fetchone()
     if not row:
         return []
     room_id = row["id"]
