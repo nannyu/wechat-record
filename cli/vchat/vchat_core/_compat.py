@@ -1,6 +1,6 @@
 """vchat_core._compat · 旧版 import 兼容 shim。
 
-让 vchat 主文件保持「老的 import 写法」就能切到 vchat_core 实现，
+让 vchat 主文件保持“老的 import 写法”就能切到 vchat_core 实现，
 避免一次性改 58 处调用。未来主文件重构后这一层可以直接删掉，
 改成 `from vchat_core import ...`。
 """

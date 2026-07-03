@@ -31,7 +31,7 @@ def get_contact_names() -> dict[str, str]:
 
 
 def _resolve_username(name_or_id: str) -> Optional[dict]:
-    """模糊解析「显示名/wxid/chatroom」到唯一 contact 行。
+    """模糊解析“显示名/wxid/chatroom”到唯一 contact 行。
 
     匹配策略（优先级递减）:
         1. username 完全匹配
@@ -66,7 +66,7 @@ def _resolve_username(name_or_id: str) -> Optional[dict]:
 
 
 def resolve_chat_context(chat_name: str) -> Optional[dict]:
-    """把「群名/好友显示名/wxid」解析成完整上下文。
+    """把“群名/好友显示名/wxid”解析成完整上下文。
 
     返回 dict:
         {

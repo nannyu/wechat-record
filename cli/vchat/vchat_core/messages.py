@@ -303,12 +303,12 @@ def search_messages(keyword: str, chat_name: str = "",
             (pat, limit),
         ).fetchall()
         if not rows:
-            return f"（{ctx['display_name']} 里没有「{keyword}」）"
+            return f"（{ctx['display_name']} 里没有“{keyword}”）"
 
         sender_map = _build_sender_map(db_rel)
         self_wxid = _contacts.get_self_username()
 
-        out = [f"在 {ctx['display_name']} 里搜「{keyword}」（{len(rows)} 条）："]
+        out = [f"在 {ctx['display_name']} 里搜“{keyword}”（{len(rows)} 条）："]
         for r in rows:
             when = datetime.fromtimestamp(r["create_time"]).strftime(
                 "%Y-%m-%d %H:%M"
@@ -331,7 +331,7 @@ def search_messages(keyword: str, chat_name: str = "",
         return "\n".join(out)
 
     # 全库搜 — 遍历所有 Msg_* 表
-    out = [f"全库搜「{keyword}」（limit {limit}）："]
+    out = [f"全库搜“{keyword}”（limit {limit}）："]
     hits = 0
     for db_rel in _list_message_dbs():
         conn = _cache.get(db_rel)
@@ -367,7 +367,7 @@ def search_messages(keyword: str, chat_name: str = "",
                     out.append(f"  ...（已达 {limit} 条上限，停止）")
                     return "\n".join(out)
     if hits == 0:
-        return f"全库未搜到「{keyword}」"
+        return f"全库未搜到“{keyword}”"
     return "\n".join(out)
 
 
