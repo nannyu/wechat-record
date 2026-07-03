@@ -36,6 +36,24 @@ $ vchat ls 5
 
 ---
 
+## 微信版本兼容性（重要）
+
+vchat 深度依赖微信 macOS 客户端的本地数据库结构，**版本必须对齐**：
+
+| 微信版本 | 支持情况 |
+|---|---|
+| macOS 微信 **4.x**（实测 4.0 ~ 4.1.7） | ✅ 支持。SQLCipher 4 加密、`db_storage/` 目录结构、zstd 压缩消息体 |
+| macOS 微信 3.x 及更早 | ❌ 不支持。数据库结构完全不同（旧版是 `Message/msg_N.db` + SQLCipher 3），请用 PyWxDump 等旧方案 |
+| iOS / Android / Windows | ❌ 不在范围内 |
+
+查看你的微信版本：
+
+```bash
+defaults read /Applications/WeChat.app/Contents/Info.plist CFBundleShortVersionString
+```
+
+**微信升级后注意**：腾讯可能在版本更新中调整表结构或加密参数。如果升级微信后 vchat 读不到新消息或报错，先重跑 `sudo vchat setup` 重新解密；仍失败请提 issue 附上微信版本号。
+
 ## 安装
 
 ### 让 Agent 自动安装（推荐）
